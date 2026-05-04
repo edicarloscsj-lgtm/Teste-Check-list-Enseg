@@ -38,6 +38,8 @@
             background-color: #f9fafb;
             cursor: crosshair;
             touch-action: none;
+            width: 100%;
+            height: 128px;
         }
 
         .photo-btn-disabled {
@@ -102,7 +104,7 @@
 
         <main class="flex-1 p-4 max-w-4xl mx-auto w-full pb-28">
 
-            <!-- ABA: PLANTÃO (Assumir e Editar Equipagem na hora) -->
+            <!-- ABA: PLANTÃO -->
             <section id="aba-plantao" class="tab-content active space-y-4">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
                     <div class="flex justify-between items-center mb-6">
@@ -233,7 +235,9 @@
                             <!-- Assinatura BA-MC -->
                             <div class="flex flex-col items-center group">
                                 <span class="text-[9px] font-black text-gray-400 uppercase mb-3 tracking-widest group-hover:text-enseg transition-colors">1. Assinatura BA-MC (Motorista)</span>
-                                <canvas id="sig-bamc" class="signature-pad w-full h-32 shadow-inner"></canvas>
+                                <div class="w-full">
+                                    <canvas id="sig-bamc" class="signature-pad shadow-inner"></canvas>
+                                </div>
                                 <div class="flex gap-2 mt-3 w-full">
                                     <button onclick="limparAssinatura('sig-bamc')" class="flex-1 text-[8px] font-bold text-gray-400 uppercase border border-gray-100 py-2 rounded-xl hover:bg-gray-50 transition-all">Limpar</button>
                                     <button id="btn-travar-bamc" onclick="travarAssinatura('sig-bamc')" class="flex-1 text-[8px] font-bold bg-gray-900 text-white uppercase py-2 rounded-xl shadow-lg hover:bg-black transition-all">Validar Inspeção</button>
@@ -244,7 +248,9 @@
                             <!-- Assinatura BA-CE / Lider -->
                             <div id="container-sig-bace" class="flex flex-col items-center opacity-20 pointer-events-none transition-all duration-500">
                                 <span class="text-[9px] font-black text-gray-400 uppercase mb-3 tracking-widest">2. Assinatura BA-CE / Líder Resgate</span>
-                                <canvas id="sig-bace" class="signature-pad w-full h-32 shadow-inner"></canvas>
+                                <div class="w-full">
+                                    <canvas id="sig-bace" class="signature-pad shadow-inner"></canvas>
+                                </div>
                                 <div class="flex gap-2 mt-3 w-full">
                                     <button onclick="limparAssinatura('sig-bace')" class="flex-1 text-[8px] font-bold text-gray-400 uppercase border border-gray-100 py-2 rounded-xl hover:bg-gray-50 transition-all">Limpar</button>
                                     <button id="btn-travar-bace" onclick="travarAssinatura('sig-bace')" class="flex-1 text-[8px] font-bold bg-enseg text-white uppercase py-2 rounded-xl shadow-lg hover:bg-ensegDark transition-all">Concluir Relatório</button>
@@ -262,7 +268,7 @@
 
             <!-- ABA: GESTÃO -->
             <section id="aba-gestao" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                <div class="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="font-black text-lg uppercase tracking-tight">Status Operacional</h3>
                         <span class="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded">Tempo Real</span>
@@ -287,6 +293,21 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- MODAL SENHA -->
+    <div id="modal-senha" class="fixed inset-0 bg-gray-900/95 z-[500] hidden flex items-center justify-center p-6 backdrop-blur-md">
+        <div class="bg-white p-8 rounded-[40px] w-full max-w-sm text-center shadow-2xl">
+            <div class="w-16 h-16 bg-red-50 text-enseg rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-lock text-2xl"></i>
+            </div>
+            <h3 class="font-black text-xl mb-6 uppercase tracking-widest leading-tight">Acesso de Gestão</h3>
+            <input type="password" id="pass-input" class="w-full bg-gray-100 rounded-2xl p-4 text-center text-3xl font-black tracking-[0.5em] mb-6 outline-none focus:bg-gray-200 transition-colors">
+            <div class="flex gap-3">
+                <button onclick="fecharModalSenha()" class="flex-1 py-4 font-bold text-[10px] text-gray-400 uppercase">Sair</button>
+                <button onclick="confirmarSenha()" class="flex-1 bg-enseg text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-red-100">Acessar</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL CAMERA / FOTO ITEM -->
@@ -320,7 +341,6 @@
         const SENHA_ADMIN = "enseg123";
         const VERSION = "v1.0.4";
         
-        // Dados mestre carregados dos CSVs
         const viaturasItems = {
             "354": ["Nível Combustível", "Óleo Motor", "Arrefecimento", "Estado Baterias", "Luzes Emergência", "Rodas/Pneus", "Bomba de Água", "Canhão Teto", "Dosagem LGE", "Agente PQS", "EPR de Cabine"],
             "369": ["Nível Combustível", "Óleo Motor/Tempo Uso", "Líquido Radiador", "Estado dos Eixos", "Pressão Ar Pneus", "Painel Eletrônico", "Canhão Teto/Para-choque", "Bomba de Água", "Drenos Pneumáticos", "EPR Operacional"],
@@ -346,31 +366,43 @@
                 document.getElementById('splash').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
                 initSelects();
-                initSignatures();
-                initDashboard();
+                updateDashboard();
             }, 600);
         }
 
         // ASSINATURAS (Canvas Engine)
-        function initSignatures() {
+        function setupSignatures() {
             const ids = ['sig-bamc', 'sig-bace'];
             ids.forEach(id => {
                 const canvas = document.getElementById(id);
                 const ctx = canvas.getContext('2d');
+                
+                // Ajustar resolução interna do canvas para o tamanho da tela
                 canvas.width = canvas.offsetWidth;
                 canvas.height = canvas.offsetHeight;
                 
                 let drawing = false;
                 const getPos = (e) => {
                     const rect = canvas.getBoundingClientRect();
+                    const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                    const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
                     return {
-                        x: (e.clientX || e.touches?.[0].clientX) - rect.left,
-                        y: (e.clientY || e.touches?.[0].clientY) - rect.top
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
                     };
                 };
 
-                const start = (e) => { drawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
-                const end = () => { drawing = false; };
+                const start = (e) => { 
+                    drawing = true; 
+                    const pos = getPos(e); 
+                    ctx.beginPath(); 
+                    ctx.moveTo(pos.x, pos.y); 
+                };
+                
+                const end = () => { 
+                    drawing = false; 
+                };
+                
                 const draw = (e) => {
                     if (!drawing) return;
                     const pos = getPos(e);
@@ -381,11 +413,16 @@
                     ctx.stroke();
                 };
 
+                canvas.removeEventListener('mousedown', start);
+                canvas.removeEventListener('mousemove', draw);
+                canvas.removeEventListener('touchstart', start);
+                canvas.removeEventListener('touchmove', draw);
+
                 canvas.addEventListener('mousedown', start);
                 canvas.addEventListener('mousemove', draw);
                 window.addEventListener('mouseup', end);
-                canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); });
-                canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+                canvas.addEventListener('touchstart', (e) => { if(drawing) e.preventDefault(); start(e); }, {passive: false});
+                canvas.addEventListener('touchmove', (e) => { if(drawing) e.preventDefault(); draw(e); }, {passive: false});
                 canvas.addEventListener('touchend', end);
             });
         }
@@ -398,10 +435,10 @@
 
         function travarAssinatura(id) {
             const canvas = document.getElementById(id);
-            // Simples check de pixel (melhorado em sistemas reais)
             const data = canvas.toDataURL();
-            if (data.length < 2500) {
-                showToast("Assinatura é obrigatória!", true);
+            // Check básico de preenchimento
+            if (data.length < 3000) {
+                showToast("Assinatura inválida ou muito curta!", true);
                 return;
             }
 
@@ -491,12 +528,22 @@
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('aba-' + id).classList.add('active');
             document.getElementById('tab-' + id).classList.add('active');
-            if(id === 'gestao') updateDashboard();
+            
+            if(id === 'checklist') {
+                // Reinicializar assinaturas quando a aba se torna visível
+                setTimeout(setupSignatures, 100);
+            }
+            
+            if(id === 'gestao') {
+                setTimeout(initDashboard, 100);
+            }
+            
             window.scrollTo(0,0);
         }
 
         function initSelects() {
             const sel = document.getElementById('sel-equipe-base');
+            sel.innerHTML = '<option value="">Equipe Fixa...</option>';
             equipes.forEach(eq => {
                 const opt = document.createElement('option');
                 opt.value = eq.id;
@@ -595,7 +642,6 @@
 
             document.getElementById('loader').classList.remove('hidden');
             
-            // Simulação de Sincronização v1.0.4
             setTimeout(() => {
                 const ncCount = Object.keys(fotosItens).length;
                 const registro = {
@@ -612,20 +658,22 @@
                 document.getElementById('loader').classList.add('hidden');
                 showToast("Relatório Enviado com Sucesso!");
                 
-                setTimeout(() => { location.reload(); }, 2000);
-            }, 3000);
+                setTimeout(() => { location.reload(); }, 1500);
+            }, 2500);
         }
 
         // DASHBOARD ENGINE
         function initDashboard() {
             const ctx = document.getElementById('chartInspecoes').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: [],
+                    labels: historico.slice(-7).map(h => new Date(h.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})),
                     datasets: [{
                         label: 'Avarias Detectadas',
-                        data: [],
+                        data: historico.slice(-7).map(h => h.nc),
                         borderColor: '#E3000F',
                         backgroundColor: 'rgba(227, 0, 15, 0.1)',
                         borderWidth: 3,
@@ -638,15 +686,15 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, grid: { display: false } },
+                        y: { beginAtZero: true, grid: { display: false }, ticks: { stepSize: 1 } },
                         x: { grid: { display: false } }
                     }
                 }
             });
-            updateDashboard();
+            updateDashboardCounters();
         }
 
-        function updateDashboard() {
+        function updateDashboardCounters() {
             const total = historico.length;
             const avarias = historico.filter(h => h.nc > 0).length;
             const ok = total - avarias;
@@ -654,11 +702,11 @@
             document.getElementById('dash-total').textContent = total;
             document.getElementById('dash-ok').textContent = total ? Math.round((ok/total)*100) + "%" : "0%";
             document.getElementById('dash-nc').textContent = avarias;
+        }
 
-            if (chartInstance) {
-                chartInstance.data.labels = historico.slice(-7).map(h => new Date(h.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}));
-                chartInstance.data.datasets[0].data = historico.slice(-7).map(h => h.nc);
-                chartInstance.update();
+        function updateDashboard() {
+            if (document.getElementById('aba-gestao').classList.contains('active')) {
+                initDashboard();
             }
         }
 
@@ -666,11 +714,30 @@
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.className = `fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all z-[1000] pointer-events-none ${error ? 'bg-red-600' : 'bg-gray-900'} text-white opacity-100 translate-y-[-10px]`;
-            setTimeout(() => { t.className = t.className.replace('opacity-100', 'opacity-0'); }, 3000);
+            setTimeout(() => { t.classList.replace('opacity-100', 'opacity-0'); }, 3000);
         }
 
-        function abrirModalSenha() { document.getElementById('modal-senha').classList.remove('hidden'); }
-        function fecharModalSenha() { document.getElementById('modal-senha').classList.add('hidden'); }
+        function abrirModalSenha() { 
+            document.getElementById('modal-senha').classList.remove('hidden'); 
+            document.getElementById('pass-input').value = "";
+            document.getElementById('pass-input').focus();
+        }
+        
+        function fecharModalSenha() { 
+            document.getElementById('modal-senha').classList.add('hidden'); 
+        }
+
+        function confirmarSenha() {
+            if(document.getElementById('pass-input').value === SENHA_ADMIN) {
+                sessionStorage.setItem('enseg_admin', 'true');
+                fecharModalSenha();
+                mudarAba('gestao');
+                showToast("Acesso Liberado");
+            } else { 
+                showToast("Senha Incorreta", true); 
+                document.getElementById('pass-input').value = "";
+            }
+        }
     </script>
 </body>
 </html>
